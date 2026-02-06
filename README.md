@@ -11,6 +11,8 @@ Click the image below to watch the video:
 
 ## Installation
 
+The upstream installation uses conda. For a non-conda setup using an existing ParaView.app installation, see [LOCAL_SETUP.md](LOCAL_SETUP.md).
+
 ```shell
 git clone https://github.com/LLNL/paraview_mcp.git
 cd paraview_mcp

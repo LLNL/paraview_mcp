@@ -27,6 +27,7 @@ htmlcov/
 # Environment and virtual environment folders
 .env
 .venv/
+deps/
 env/
 venv/
 ENV/

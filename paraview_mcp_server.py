@@ -54,7 +54,7 @@ logger = logging.getLogger("pv_external_mcp")
 pv_manager = ParaViewManager()
 
 # Initialize FastMCP server for Claude Desktop integration with default prompt
-mcp = FastMCP("ParaView", system_prompt=default_prompt)
+mcp = FastMCP("ParaView", instructions=default_prompt)
 
 # ============================================================================
 # MCP Tools for ParaView
@@ -531,6 +531,96 @@ def warp_by_vector(vector_field: str = None, scale_factor: float = 1.0) -> str:
     return message
 
 @mcp.tool()
+def rename_source(new_name: str) -> str:
+    """
+    Rename the active source in the pipeline browser.
+
+    Args:
+        new_name: The new display name for the active source.
+
+    Returns:
+        Status message
+    """
+    success, message = pv_manager.rename_source(new_name)
+    return message
+
+@mcp.tool()
+def delete_source(name: str = None) -> str:
+    """
+    Delete a source from the pipeline.
+
+    Args:
+        name: Name of the source to delete. If not provided, deletes the active source.
+
+    Returns:
+        Status message
+    """
+    success, message = pv_manager.delete_source(name)
+    return message
+
+@mcp.tool()
+def create_clip(origin_x: float = None, origin_y: float = None, origin_z: float = None,
+                normal_x: float = 1, normal_y: float = 0, normal_z: float = 0,
+                inside_out: bool = False) -> str:
+    """
+    Create a clip (half-space cut) through the active source.
+
+    Args:
+        origin_x, origin_y, origin_z: Clip plane origin. If None, uses dataset center.
+        normal_x, normal_y, normal_z: Clip plane normal (default [1, 0, 0]).
+        inside_out: If True, keep the half behind the plane instead of in front.
+
+    Returns:
+        Status message
+    """
+    success, message, _, clip_name = pv_manager.create_clip(
+        origin_x, origin_y, origin_z,
+        normal_x, normal_y, normal_z,
+        inside_out
+    )
+    return message
+
+@mcp.tool()
+def create_threshold(field: str, lower: float = None, upper: float = None,
+                     field_association: str = "CELLS") -> str:
+    """
+    Create a threshold filter on the active source, keeping only cells/points
+    where the field value falls within the specified range.
+
+    Args:
+        field: The scalar field to threshold by.
+        lower: Lower threshold value. If None, uses field minimum.
+        upper: Upper threshold value. If None, uses field maximum.
+        field_association: 'CELLS' or 'POINTS' (default: 'CELLS').
+
+    Returns:
+        Status message
+    """
+    success, message, _, threshold_name = pv_manager.create_threshold(
+        field, lower, upper, field_association
+    )
+    return message
+
+@mcp.tool()
+def exec_python(code: str) -> str:
+    """
+    Execute arbitrary Python code in the ParaView Python environment.
+    All of paraview.simple is available in the namespace (e.g. GetActiveSource,
+    Show, Render, etc.) as well as via the 'pvs' alias.
+
+    Use print() to return results. If no output is printed, a success
+    confirmation is returned.
+
+    Args:
+        code: Python code to execute.
+
+    Returns:
+        Captured stdout/stderr output, or error traceback.
+    """
+    success, output = pv_manager.exec_python(code)
+    return output
+
+@mcp.tool()
 def list_commands() -> str:
     """
     List all available commands in this ParaView MCP server.
@@ -554,6 +644,11 @@ def list_commands() -> str:
         "get_pipeline: Get the current pipeline structure",
         "get_available_arrays: Get available data arrays",
         "create_streamline: Create stream line visualization",
+        "rename_source: Rename the active source in the pipeline browser",
+        "delete_source: Delete a source from the pipeline",
+        "create_clip: Create a clip (half-space cut) through the active source",
+        "create_threshold: Threshold filter by field value range",
+        "exec_python: Execute arbitrary Python code in ParaView's Python environment",
         "compute_surface_area: Compute the surface area of the active surface",
         "save_contour_as_stl: Save the active surface as STL",
         "get_screenshot: Capture a screenshot and display it in chat",
