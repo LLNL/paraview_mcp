@@ -1321,3 +1321,226 @@ class ParaViewManager:
         except Exception as e:
             self.logger.error(f"Error creating warp by vector: {str(e)}")
             return False, f"Error creating warp by vector: {str(e)}", None
+
+    def rename_source(self, new_name):
+        """
+        Rename the active source in the pipeline browser.
+
+        Args:
+            new_name (str): The new name for the active source.
+
+        Returns:
+            tuple: (success: bool, message: str)
+        """
+        try:
+            from paraview.simple import GetActiveSource, RenameSource
+
+            source = GetActiveSource()
+            if not source:
+                return False, "Error: No active source to rename."
+
+            old_name = self._get_source_name(source)
+            RenameSource(new_name, source)
+            return True, f"Renamed '{old_name}' to '{new_name}'."
+        except Exception as e:
+            self.logger.error(f"Error renaming source: {str(e)}")
+            return False, f"Error renaming source: {str(e)}"
+
+    def delete_source(self, name=None):
+        """
+        Delete a source from the pipeline.
+
+        Args:
+            name (str, optional): Name of the source to delete.
+                                  If None, deletes the active source.
+
+        Returns:
+            tuple: (success: bool, message: str)
+        """
+        try:
+            from paraview.simple import (
+                GetActiveSource, GetSources, SetActiveSource, Delete
+            )
+
+            if name is not None:
+                # Find the source by name
+                sources_dict = GetSources()
+                target = None
+                for (source_key, proxy) in sources_dict.items():
+                    if source_key[0] == name:
+                        target = proxy
+                        break
+                if target is None:
+                    return False, f"No source found with the name '{name}'."
+                SetActiveSource(target)
+                Delete(target)
+                return True, f"Deleted source '{name}'."
+            else:
+                source = GetActiveSource()
+                if not source:
+                    return False, "Error: No active source to delete."
+                source_name = self._get_source_name(source)
+                Delete(source)
+                return True, f"Deleted source '{source_name}'."
+        except Exception as e:
+            self.logger.error(f"Error deleting source: {str(e)}")
+            return False, f"Error deleting source: {str(e)}"
+
+    def create_clip(self, origin_x=None, origin_y=None, origin_z=None,
+                    normal_x=1, normal_y=0, normal_z=0, inside_out=False):
+        """
+        Create a clip through the active source.
+
+        Args:
+            origin_x, origin_y, origin_z: Coordinates for the clip plane origin.
+                                          If None, uses the dataset center.
+            normal_x, normal_y, normal_z: Normal of the clip plane (default: [1, 0, 0]).
+            inside_out (bool): If True, keep the half behind the plane instead of in front.
+
+        Returns:
+            tuple: (success: bool, message: str, clip_filter, clip_name: str)
+        """
+        try:
+            from paraview.simple import (
+                GetActiveView, GetActiveSource, Clip, Show
+            )
+
+            base_source = GetActiveSource()
+            if not base_source:
+                return False, "Error: No active source. Load data first.", None, ""
+
+            if origin_x is not None and origin_y is not None and origin_z is not None:
+                origin = [origin_x, origin_y, origin_z]
+            else:
+                info = base_source.GetDataInformation()
+                bounds = info.GetBounds()
+                origin = [
+                    (bounds[0] + bounds[1]) / 2,
+                    (bounds[2] + bounds[3]) / 2,
+                    (bounds[4] + bounds[5]) / 2
+                ]
+
+            normal = [normal_x, normal_y, normal_z]
+
+            clip_filter = Clip(Input=base_source)
+            clip_filter.ClipType = 'Plane'
+            clip_filter.ClipType.Origin = origin
+            clip_filter.ClipType.Normal = normal
+            clip_filter.Invert = 1 if inside_out else 0
+
+            view = GetActiveView()
+            Show(clip_filter, view)
+
+            clip_name = self._get_source_name(clip_filter)
+
+            message = (
+                f"Created clip with origin {origin} and normal {normal}. "
+                f"InsideOut={inside_out}. Clip name is: {clip_name}"
+            )
+            return True, message, clip_filter, clip_name
+        except Exception as e:
+            self.logger.error(f"Error creating clip: {str(e)}")
+            return False, f"Error creating clip: {str(e)}", None, ""
+
+    def create_threshold(self, field, lower=None, upper=None, field_association="CELLS"):
+        """
+        Create a threshold filter on the active source.
+
+        Args:
+            field (str): The scalar field to threshold by.
+            lower (float, optional): Lower threshold value. If None, uses the field minimum.
+            upper (float, optional): Upper threshold value. If None, uses the field maximum.
+            field_association (str): 'CELLS' or 'POINTS' (default: 'CELLS').
+
+        Returns:
+            tuple: (success: bool, message: str, threshold_filter, threshold_name: str)
+        """
+        try:
+            from paraview.simple import (
+                GetActiveView, GetActiveSource, Threshold, Show
+            )
+
+            base_source = GetActiveSource()
+            if not base_source:
+                return False, "Error: No active source. Load data first.", None, ""
+
+            threshold_filter = Threshold(Input=base_source)
+            threshold_filter.Scalars = (field_association, field)
+
+            if lower is not None:
+                threshold_filter.LowerThreshold = lower
+            if upper is not None:
+                threshold_filter.UpperThreshold = upper
+
+            view = GetActiveView()
+            Show(threshold_filter, view)
+
+            threshold_name = self._get_source_name(threshold_filter)
+
+            bounds_str = f"[{lower if lower is not None else 'min'}, {upper if upper is not None else 'max'}]"
+            message = (
+                f"Created threshold on '{field}' ({field_association}) "
+                f"with range {bounds_str}. Threshold name is: {threshold_name}"
+            )
+            return True, message, threshold_filter, threshold_name
+        except Exception as e:
+            self.logger.error(f"Error creating threshold: {str(e)}")
+            return False, f"Error creating threshold: {str(e)}", None, ""
+
+    def exec_python(self, code):
+        """
+        Execute arbitrary Python code in the ParaView Python environment.
+
+        Args:
+            code (str): Python code to execute.
+
+        Returns:
+            tuple: (success: bool, output: str)
+        """
+        import io
+        import sys
+        import traceback
+
+        stdout_capture = io.StringIO()
+        stderr_capture = io.StringIO()
+        old_stdout = sys.stdout
+        old_stderr = sys.stderr
+
+        try:
+            sys.stdout = stdout_capture
+            sys.stderr = stderr_capture
+
+            # Build a namespace with paraview.simple available
+            exec_globals = {"__builtins__": __builtins__}
+            try:
+                import paraview.simple as pvs
+                exec_globals["paraview"] = __import__("paraview")
+                exec_globals["pvs"] = pvs
+                # Also inject all of paraview.simple for convenience
+                for name in dir(pvs):
+                    if not name.startswith("_"):
+                        exec_globals[name] = getattr(pvs, name)
+            except ImportError:
+                pass
+
+            exec(code, exec_globals)
+
+            sys.stdout = old_stdout
+            sys.stderr = old_stderr
+
+            stdout_val = stdout_capture.getvalue()
+            stderr_val = stderr_capture.getvalue()
+            output = ""
+            if stdout_val:
+                output += stdout_val
+            if stderr_val:
+                output += stderr_val
+            if not output:
+                output = "(executed successfully, no output)"
+
+            return True, output
+        except Exception as e:
+            sys.stdout = old_stdout
+            sys.stderr = old_stderr
+            tb = traceback.format_exc()
+            return False, f"Error:\n{tb}"
