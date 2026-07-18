@@ -1,0 +1,37 @@
+providers:
+  - id: python:mcp_eval_client.py
+    config:
+      use_claude: true
+      model: claude-sonnet-4-20250514
+      mcp:
+        enabled: true
+        server:
+          command: python
+          args: ["./src/paraview_mcp_server.py"]
+          cwd: "./"
+          name: paraview-server
+          env:
+            PORT: "3000"
+        temperature: 0
+        max_tokens: 4096
+        executeTools: true
+
+prompts:
+  - |
+    You are a visualization experts. Please answer the following question:
+    {{question}}. 
+    Use maximum of 15 visualization calls, you can rotate the data around and take screenshot when necessary for more informative views and verfiy the results.
+    
+# The eval dataset is at ../SciVisAgentBench-tasks/, and each task should start with a clear operation to reset paraview
+
+# Configure default test settings for model-graded assertions
+defaultTest:
+  options:
+    runSerially: true
+    provider: anthropic:messages:claude-sonnet-4-20250514
+
+# tests: file://test_cases.yaml
+
+evaluateOptions:
+  cache: false
+  maxConcurrency: 1    

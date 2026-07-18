@@ -1,0 +1,367 @@
+# Comprehensive Data Identification Test Cases for SciVisAgentBench
+# This test evaluates the ability to identify and understand data content
+# without prior knowledge from metadata or naming patterns
+# the comment out dataset are the one can be hard to recognize even for human user without proper background or context
+
+# 1. Aneurism Dataset
+- vars:
+    question: |
+        Clear the ParaView pipeline and load the data file "../SciVisAgentBench-tasks/aneurism/data/aneurism_256x256x256_uint8.raw".
+        Use visualization tools to determine what object or structure is contained in this dataset.
+        Take a screenshot and provide a textual report identifying what you observe in the data.
+  assert:
+    - type: llm-rubric
+      value: |
+          The assistant should identify the data shows an aneurism or vascular structure in the skull
+
+# 2. Backpack Dataset
+# - vars:
+#     question: |
+#         Clear the ParaView pipeline and load the data file "../SciVisAgentBench-tasks/backpack/data/backpack_512x512x373_uint16.raw".
+#         Use visualization tools to determine what object is contained in this dataset.
+#         Take a screenshot and provide a textual report identifying what you observe.
+#   assert:
+#     - type: llm-rubric
+#       value: |
+#           The assistant should identify that the data shows a backpack
+
+# 3. Blunt Fin Dataset
+# - vars:
+#     question: |
+#         Clear the ParaView pipeline and load the data file "../SciVisAgentBench-tasks/blunt_fin/data/blunt_fin_256x128x64_uint8.raw".
+#         Use visualization tools to determine what object or structure is in this dataset.
+#         Take a screenshot and provide a textual report identifying what you observe.
+#   assert:
+#     - type: llm-rubric
+#       value: |
+#           The assistant should identify a fin or aerodynamic strcuture or simulation result in the data
+
+# 4. Bonsai Dataset
+- vars:
+    question: |
+        Clear the ParaView pipeline and load the data file "../SciVisAgentBench-tasks/bonsai/data/bonsai_256x256x256_uint8.raw".
+        Use visualization tools to determine what object is contained in this dataset.
+        Take a screenshot and provide a textual report identifying what you observe.
+  assert:
+    - type: llm-rubric
+      value: |
+          Should identify a bonsai tree or botanical / tree structure in the data
+
+# 5. Boston Teapot Dataset
+- vars:
+    question: |
+        Clear the ParaView pipeline and load the data file "../SciVisAgentBench-tasks/boston_teapot/data/boston_teapot_256x256x178_uint8.raw".
+        Use visualization tools to determine what object is in this dataset.
+        Take a screenshot and provide a textual report identifying what you observe.
+  assert:
+    - type: llm-rubric
+      value: |
+          Should identify a teapot in the visualization
+
+# 6. Bunny Dataset
+- vars:
+    question: |
+        Clear the ParaView pipeline and load the data file "../SciVisAgentBench-tasks/bunny/data/bunny_512x512x361_uint16.raw".
+        Use visualization tools to determine what object is in this dataset.
+        Take a screenshot and provide a textual report identifying what you observe.
+  assert:
+    - type: llm-rubric
+      value: |
+          Should identify a bunny or rabbit in the 3D scanned data
+
+# 7. Carp Dataset
+- vars:
+    question: |
+        Clear the ParaView pipeline and load the data file "../SciVisAgentBench-tasks/carp/data/carp_256x256x512_uint16.raw".
+        Use visualization tools to examine what is shown in this dataset.
+        Take a screenshot and provide a textual report identifying what you observe.
+  assert:
+    - type: llm-rubric
+      value: |
+          Should identify a carp or fish anatomy
+
+# 8. CSAFE Heptane Dataset
+- vars:
+    question: |
+        Clear the ParaView pipeline and load the data file "../SciVisAgentBench-tasks/csafe_heptane/data/csafe_heptane_302x302x302_uint8.raw".
+        Use visualization tools to examine what is shown in this dataset.
+        Take a screenshot and provide a textual report identifying what you observe.
+  assert:
+    - type: llm-rubric
+      value: |
+          Should recognize combustion or heptane simulation data
+
+# 9. Duct Dataset
+- vars:
+    question: |
+        Clear the ParaView pipeline and load the data file "../SciVisAgentBench-tasks/duct/data/duct_193x194x1000_float32.raw".
+        Use visualization tools to examine what is shown in this dataset.
+        Take a screenshot and provide a textual report describing what you observe.
+  assert:
+    - type: llm-rubric
+      value: |
+          Should identify flow patterns in a duct geometry
+
+# 10. Engine Dataset
+- vars:
+    question: |
+        Clear the ParaView pipeline and load the data file "../SciVisAgentBench-tasks/engine/data/engine_256x256x128_uint8.raw".
+        Use visualization tools to examine what is shown in this dataset.
+        Take a screenshot and provide a textual report identifying what you observe.
+  assert:
+    - type: llm-rubric
+      value: |
+          Should identify an engine or mechanical components
+
+# 11. Foot Dataset
+- vars:
+    question: |
+        Clear the ParaView pipeline and load the data file "../SciVisAgentBench-tasks/foot/data/foot_256x256x256_uint8.raw".
+        Use visualization tools to examine what is shown in this dataset.
+        Take a screenshot and provide a textual report identifying what you observe.
+  assert:
+    - type: llm-rubric
+      value: |
+          Should identify a foot with bone and tissue structures
+
+# 12. Frog Dataset
+- vars:
+    question: |
+        Clear the ParaView pipeline and load the data file "../SciVisAgentBench-tasks/frog/data/frog_256x256x44_uint8.raw".
+        Use visualization tools to examine what is shown in this dataset.
+        Take a screenshot and provide a textual report identifying what you observe.
+  assert:
+    - type: llm-rubric
+      value: |
+          Should identify a frog specimen with internal anatomy
+
+# 13. Fuel Dataset
+# - vars:
+#     question: |
+#         Clear the ParaView pipeline and load the data file "../SciVisAgentBench-tasks/fuel/data/fuel_64x64x64_uint8.raw".
+#         Use visualization tools to examine what is shown in this dataset.
+#         Take a screenshot and provide a textual report identifying what you observe.
+#   assert:
+#     - type: llm-rubric
+#       value: |
+#           Should identify fuel combustion or related simulation
+
+# 14. Hydrogen Atom Dataset
+# - vars:
+#     question: |
+#         Clear the ParaView pipeline and load the data file "../SciVisAgentBench-tasks/hydrogen_atom/data/hydrogen_atom_128x128x128_uint8.raw".
+#         Use visualization tools to examine what is shown in this dataset.
+#         Take a screenshot and provide a textual report identifying what you observe.
+#   assert:
+#     - type: llm-rubric
+#       value: |
+#           Should recognize hydrogen atom orbital or probability distribution
+
+# 15. Lobster Dataset
+- vars:
+    question: |
+        Clear the ParaView pipeline and load the data file "../SciVisAgentBench-tasks/lobster/data/lobster_301x324x56_uint8.raw".
+        Use visualization tools to examine what is shown in this dataset.
+        Take a screenshot and provide a textual report identifying what you observe.
+  assert:
+    - type: llm-rubric
+      value: |
+          Should identify a lobster or crustacean anatomy
+
+# 16. Marschner-Lobb Dataset
+- vars:
+    question: |
+        Clear the ParaView pipeline and load the data file "../SciVisAgentBench-tasks/marschner_lobb/data/marschner_lobb_41x41x41_uint8.raw".
+        Use visualization tools to examine what is shown in this dataset.
+        Take a screenshot and provide a textual report identifying what you observe.
+  assert:
+    - type: llm-rubric
+      value: |
+          Should recognize Marschner-Lobb synthetic test pattern
+
+# 17. MRI Ventricles Dataset
+- vars:
+    question: |
+        Clear the ParaView pipeline and load the data file "../SciVisAgentBench-tasks/mri_ventricles/data/mri_ventricles_256x256x124_uint8.raw".
+        Use visualization tools to examine what is shown in this dataset.
+        Take a screenshot and provide a textual report identifying what you observe.
+  assert:
+    - type: llm-rubric
+      value: |
+          Should identify brain ventricles or ventricular structures
+
+# 18. MRI Woman Dataset
+- vars:
+    question: |
+        Clear the ParaView pipeline and load the data file "../SciVisAgentBench-tasks/mri_woman/data/mri_woman_256x256x109_uint16.raw".
+        Use visualization tools to examine what is shown in this dataset.
+        Take a screenshot and provide a textual report identifying what you observe.
+  assert:
+    - type: llm-rubric
+      value: |
+          Should identify human anatomical structures from MRI scan
+
+# 19. MRT Angio Dataset
+- vars:
+    question: |
+        Clear the ParaView pipeline and load the data file "../SciVisAgentBench-tasks/mrt_angio/data/mrt_angio_416x512x112_uint16.raw".
+        Use visualization tools to examine what is shown in this dataset.
+        Take a screenshot and provide a textual report identifying what you observe.
+  assert:
+    - type: llm-rubric
+      value: |
+          Should identify angiography or vascular structures
+
+# 20. Neghip Dataset
+# - vars:
+#     question: |
+#         Clear the ParaView pipeline and load the data file "../SciVisAgentBench-tasks/neghip/data/neghip_64x64x64_uint8.raw".
+#         Use visualization tools to examine what is shown in this dataset.
+#         Take a screenshot and provide a textual report identifying what you observe.
+#   assert:
+#     - type: llm-rubric
+#       value: |
+#           Should visualize and describe molecule structure
+
+# 21. Neocortical Layer 1 Axons Dataset
+- vars:
+    question: |
+        Clear the ParaView pipeline and load the data file "../SciVisAgentBench-tasks/neocortical_layer_1_axons/data/neocortical_layer_1_axons_1464x1033x76_uint8.raw".
+        Use visualization tools to examine what is shown in this dataset.
+        Take a screenshot and provide a textual report identifying what you observe.
+  assert:
+    - type: llm-rubric
+      value: |
+          Should identify neural axons or neocortical network structures
+
+# 22. Nucleon Dataset
+# - vars:
+#     question: |
+#         Clear the ParaView pipeline and load the data file "../SciVisAgentBench-tasks/nucleon/data/nucleon_41x41x41_uint8.raw".
+#         Use visualization tools to examine what is shown in this dataset.
+#         Take a screenshot and provide a textual report identifying what you observe.
+#   assert:
+#     - type: llm-rubric
+#       value: |
+#           Should visualize nucleon or particle physics data
+
+# 23. Pancreas Dataset
+- vars:
+    question: |
+        Clear the ParaView pipeline and load the data file "../SciVisAgentBench-tasks/pancreas/data/pancreas_240x512x512_int16.raw".
+        Use visualization tools to examine what is shown in this dataset.
+        Take a screenshot and provide a textual report identifying what you observe.
+  assert:
+    - type: llm-rubric
+      value: |
+          Should identify pancreas or pancreatic anatomy
+
+# 24. Shockwave Dataset
+- vars:
+    question: |
+        Clear the ParaView pipeline and load the data file "../SciVisAgentBench-tasks/shockwave/data/shockwave_64x64x512_uint8.raw".
+        Use visualization tools to examine what is shown in this dataset.
+        Take a screenshot and provide a textual report identifying what you observe.
+  assert:
+    - type: llm-rubric
+      value: |
+          Should identify explosion shockwave or wave propagation patterns
+
+# 25. Silicium Dataset
+# - vars:
+#     question: |
+#         Clear the ParaView pipeline and load the data file "../SciVisAgentBench-tasks/silicium/data/silicium_98x34x34_uint8.raw".
+#         Use visualization tools to examine what is shown in this dataset.
+#         Take a screenshot and provide a textual report identifying what you observe.
+#   assert:
+#     - type: llm-rubric
+#       value: |
+#           Should identify silicon crystal or material structure
+
+# 26. Skull Dataset
+- vars:
+    question: |
+        Clear the ParaView pipeline and load the data file "../SciVisAgentBench-tasks/skull/data/skull_256x256x256_uint8.raw".
+        Use visualization tools to examine what is shown in this dataset.
+        Take a screenshot and provide a textual report identifying what you observe.
+  assert:
+    - type: llm-rubric
+      value: |
+          Should identify skull or cranial bone structures
+
+# 27. Statue Leg Dataset
+- vars:
+    question: |
+        Clear the ParaView pipeline and load the data file "../SciVisAgentBench-tasks/statue_leg/data/statue_leg_341x341x93_uint8.raw".
+        Use visualization tools to examine what is shown in this dataset.
+        Take a screenshot and provide a textual report identifying what you observe.
+  assert:
+    - type: llm-rubric
+      value: |
+          Should identify a statue leg or sculptural form
+
+# 28. Stent Dataset
+- vars:
+    question: |
+        Clear the ParaView pipeline and load the data file "../SciVisAgentBench-tasks/stent/data/stent_512x512x174_uint16.raw".
+        Use visualization tools to examine what is shown in this dataset.
+        Take a screenshot and provide a textual report identifying what you observe.
+  assert:
+    - type: llm-rubric
+      value: |
+          Should identify a human body medical scan, specifically the mid-section
+
+# 29. Supernova Dataset
+# - vars:
+#     question: |
+#         Clear the ParaView pipeline and load the data file "../SciVisAgentBench-tasks/supernova/data/supernova_256x256x256_float32.raw".
+#         Use visualization tools to examine what is shown in this dataset.
+#         Take a screenshot and provide a textual report identifying what you observe.
+#   assert:
+#     - type: llm-rubric
+#       value: |
+#           Should identify supernova or astrophysical explosion simulation
+
+# 30. TACC Turbulence Dataset
+- vars:
+    question: |
+        Clear the ParaView pipeline and load the data file "../SciVisAgentBench-tasks/tacc_turbulence/data/tacc_turbulence_256x256x256_float32.raw".
+        Use visualization tools to examine what is shown in this dataset.
+        Take a screenshot and provide a textual report identifying what you observe.
+  assert:
+    - type: llm-rubric
+      value: |
+          Should identify turbulence or vortex flow structures
+
+# 31. Tooth Dataset
+- vars:
+    question: |
+        Clear the ParaView pipeline and load the data file "../SciVisAgentBench-tasks/tooth/data/tooth_103x94x161_uint8.raw".
+        Use visualization tools to examine what is shown in this dataset.
+        Take a screenshot and provide a textual report identifying what you observe.
+  assert:
+    - type: llm-rubric
+      value: |
+          Should identify tooth or dental anatomy
+
+# 32. Tornado Dataset
+- vars:
+    question: |
+        Clear the ParaView pipeline and load the data file "../SciVisAgentBench-tasks/tornado/data/tornado_64x64x64_float32_scalar3.raw".
+        Use visualization tools to examine what is shown in this dataset.
+        Take a screenshot and provide a textual report identifying what you observe.
+  assert:
+    - type: llm-rubric
+      value: |
+          Should identify tornado or vortex flow pattern
+
+# 33. Visible Male Dataset
+- vars:
+    question: |
+        Clear the ParaView pipeline and load the data file "../SciVisAgentBench-tasks/vis_male/data/vis_male_128x256x256_uint8.raw".
+        Use visualization tools to examine what is shown in this dataset.
+        Take a screenshot and provide a textual report identifying what you observe.
+  assert:
+    - type: llm-rubric
+      value: |
+          Should identify human anatomical structures 
