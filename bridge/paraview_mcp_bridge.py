@@ -8,19 +8,36 @@ MCP server's canned exec snippets, not here.
 Usage (embedded, inside the ParaView GUI):
     Register this file as a macro (Macros -> Import new macro...) and run
     it, or paste the whole file into View -> Python Shell and press Enter.
-    Either way it starts listening immediately: __name__ == "__main__" in
-    both the Shell and macro execution contexts, which is what triggers
-    start() at the bottom of this file. Re-running is safe (idempotent):
-    it closes its own previous listener/timer first.
+    Either way it starts listening immediately at the bottom of this file.
+    Re-running is safe (idempotent): it closes its own previous
+    listener/timer first.
+
+    Note: this does NOT key off __name__ == "__main__". ParaView's macro
+    loader executes this file as a named module (not as __main__), the
+    same way importlib.util.spec_from_file_location does for our own
+    test suite -- so that signal can't tell "macro run" apart from
+    "plain import". The real seam is the
+    PARAVIEW_MCP_BRIDGE_TEST_NO_AUTOSTART env var below, which only the
+    test harness ever sets.
+
+    KNOWN ISSUE (docs/M1_PLAN.md section 5, item 8, 2026-07-19): running
+    this as a registered macro while the GUI is connected to a pvserver
+    segfaults ParaView shortly after the "listening" log line (confirmed
+    on unmodified bridge/spike/m0_bridge_spike.py too, so it is not a bug
+    in this file -- likely an interaction between ParaView's macro
+    execution and TimerEvent/observer registration on a client-server
+    interactor). Pasting into the Python Shell instead of registering a
+    macro avoids it and is unaffected. Only matters when using pvserver;
+    builtin (no pvserver) is unaffected either way.
 
 Usage (standalone, headless / CI):
     pvpython --force-offscreen-rendering paraview_mcp_bridge.py --standalone [--port N]
 
-Importing this module (e.g. `import paraview_mcp_bridge`) does neither:
-it only defines functions. paraview/vtk are imported lazily, inside the
-functions that need them, so the module can be imported in a plain
-CPython environment with no ParaView installed at all (see docs/M1_PLAN.md
-section 4.1, test_bridge_import.py).
+Importing this module for tests (with PARAVIEW_MCP_BRIDGE_TEST_NO_AUTOSTART
+set) does neither: it only defines functions. paraview/vtk are imported
+lazily, inside the functions that need them, so the module can be
+imported in a plain CPython environment with no ParaView installed at
+all (see docs/M1_PLAN.md section 4.1, test_bridge_import.py).
 """
 import ast
 import json
@@ -42,6 +59,12 @@ MAX_LINE_BYTES = 64 * 1024 * 1024  # 64 MiB, DESIGN.md 5.1
 DEFAULT_MAX_VALUE_BYTES = 256 * 1024  # DESIGN.md 5.2 / 6.2
 MAX_OUTPUT_BYTES = 64 * 1024  # stdout/stderr, DESIGN.md 6.3
 PROBE_TIMEOUT = 2.0  # startup idempotency ping, DESIGN.md 4.1
+
+# Set only by the test harness (tests/unit/conftest.py load_bridge_module)
+# to suppress the autostart at the bottom of this file. See the module
+# docstring above for why this, and not __name__ == "__main__", is the
+# actual import-safety seam (B-01).
+NO_AUTOSTART_ENV = "PARAVIEW_MCP_BRIDGE_TEST_NO_AUTOSTART"
 
 # Both "paste into the Python Shell" and "run as a macro" re-execute this
 # file's top-level code against a namespace that may already hold globals
@@ -669,5 +692,5 @@ def _main():
         start()
 
 
-if __name__ == "__main__":
+if not os.environ.get(NO_AUTOSTART_ENV):
     _main()

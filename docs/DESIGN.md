@@ -378,7 +378,8 @@ paraview_mcp/
 ## 13. マイルストーン
 
 - **M0: スパイク(完了、2026-07-19)** — ParaView 6.1.1 実機(WSL2)で4項目すべて確認した。詳細・再現手順は [docs/M0_SPIKE.md](M0_SPIKE.md)。
-  - タイマー駆動: **PASS**。`CreateRepeatingTimer` + `TimerEvent` オブザーバは GUI メインスレッドでコールバックを安定駆動し、`paraview.simple` もそこから問題なく呼べる。pvserver 接続の有無で挙動差は無い。
+  - タイマー駆動: **PASS**(Python Shell への直接貼り付けで検証。マクロ登録経由は未検証だった)。`CreateRepeatingTimer` + `TimerEvent` オブザーバは GUI メインスレッドでコールバックを安定駆動し、`paraview.simple` もそこから問題なく呼べる。pvserver 接続の有無で挙動差は無い。
+    - **既知の限界(M1 §5 手動受け入れテスト #8 で判明、2026-07-19)**: 上記 PASS は Shell 貼り付け実行での結果であり、**マクロとして登録して実行 + pvserver 接続**の組み合わせでは ParaView GUI がセグフォで落ちる(gdb で確認: メインスレッド上、`QVTKInteractorInternal::TimerEvent → vtkPythonCommand::Execute → _PyEval_EvalFrameDefault` 内でクラッシュ)。未変更の M0 スパイクコードでも同一条件で再現するため、ブリッジ実装側の欠陥ではなく ParaView 自身の「マクロ実行機構」と「client-server 接続時のタイマー/オブザーバー登録」の相互作用に起因すると推定。回避策: pvserver 接続時は macro 登録ではなく Python Shell へ直接貼り付けて起動する。詳細は [docs/M1_PLAN.md](M1_PLAN.md) §5 #8。
   - 再入(§4.1 のガードの実証): `sleep`+`Render()` を挟む2秒程度のワークロードでは再入は**観測されなかった**。ガードはコード上は残すが、実際に発火する具体的な条件は未特定のまま。
   - pvserver 接続時のサーバー側 VTK エラー伝搬(§6.3): **PASS**。実データで確認済み。
   - state 要約生成コスト(§6.5、50件): **PASS**(13.9ms / 14.95ms、目安20ms以内)。

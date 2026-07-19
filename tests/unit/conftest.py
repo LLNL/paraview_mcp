@@ -13,6 +13,7 @@ Two of the three test seams live here:
 import asyncio
 import importlib.util
 import json
+import os
 import select as select_mod
 import socket
 import sys
@@ -29,13 +30,29 @@ from tests.fakes.paraview import simple as fake_simple
 
 BRIDGE_PATH = Path(__file__).resolve().parents[2] / "bridge" / "paraview_mcp_bridge.py"
 
+# Mirrors bridge.paraview_mcp_bridge.NO_AUTOSTART_ENV -- can't import the
+# constant from there without first loading the module it gates, so the
+# string is duplicated by name. This is the actual B-01 import-safety
+# seam; see that module's docstring for why __name__ == "__main__" isn't
+# usable (ParaView's macro loader doesn't set it either).
+NO_AUTOSTART_ENV = "PARAVIEW_MCP_BRIDGE_TEST_NO_AUTOSTART"
+
 
 def load_bridge_module():
     """Import a standalone copy of the bridge, isolated from sys.modules
-    caching so each call gets its own fresh globals."""
+    caching so each call gets its own fresh globals. Suppresses autostart
+    for the duration of the load (B-01)."""
     spec = importlib.util.spec_from_file_location("paraview_mcp_bridge", str(BRIDGE_PATH))
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    previous = os.environ.get(NO_AUTOSTART_ENV)
+    os.environ[NO_AUTOSTART_ENV] = "1"
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        if previous is None:
+            del os.environ[NO_AUTOSTART_ENV]
+        else:
+            os.environ[NO_AUTOSTART_ENV] = previous
     return module
 
 

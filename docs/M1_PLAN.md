@@ -206,14 +206,14 @@ SMOKE.md(M2 成果物)の前身。実施したら結果を下表に記入する�
 
 | # | 手順 | 期待結果 | 結果 |
 |---|---|---|---|
-| 1 | ParaView 起動 → マクロ登録 → 実行 | listening 行+`bridge active` 行 | |
-| 2 | `uv run paraview-mcp` を MCP クライアント(MCP Inspector 等)に接続し `bridge_status` | ParaView / ブリッジ版数・session_type: builtin | |
-| 3 | `execute_python`: Sphere 生成 → Show → 点数を末尾式で | `value` に点数、GUI に球、state に Sphere1 | |
-| 4 | `get_screenshot` | GUI の見た目と一致する JPEG | |
-| 5 | `execute_python`: `import time; time.sleep(5)` を `timeout_s=2` で | タイムアウト文言。直後の呼び出しは正常(遅延応答が破棄される) | |
-| 6 | ParaView を終了して `bridge_status` | 「マクロを実行せよ」ガイダンス(サーバーは生存) | |
-| 7 | `pvpython --force-offscreen-rendering bridge/paraview_mcp_bridge.py --standalone` に対し 2〜4 相当 | GUI 無しで同一の結果 | |
-| 8 | (任意)pvserver 接続下で 2〜4 | builtin と同一挙動、session_type: client-server | |
+| 1 | ParaView 起動 → マクロ登録 → 実行 | listening 行+`bridge active` 行 | PASS (2026-07-19)。当初 `__name__ == "__main__"` ガードで無反応 → ParaView のマクロローダーは `__main__` を設定しないと判明、`PARAVIEW_MCP_BRIDGE_TEST_NO_AUTOSTART` 環境変数方式に修正して解消(bridge/paraview_mcp_bridge.py、tests/unit/conftest.py) |
+| 2 | `uv run paraview-mcp` を MCP クライアント(MCP Inspector 等)に接続し `bridge_status` | ParaView / ブリッジ版数・session_type: builtin | PASS (2026-07-19)。MCP Inspector はプロキシ側で `SSE connection not established` を返す既知の不具合が発生したため、直接 `mcp.ClientSession`(stdio)で検証。`bridge_version: 1.0.0`, `paraview_version: 6.1.1`, `session_type: builtin` を確認 |
+| 3 | `execute_python`: Sphere 生成 → Show → 点数を末尾式で | `value` に点数、GUI に球、state に Sphere1 | PASS (2026-07-19)。`value: 50`、`state.sources` に `Sphere1`(visible/active true) |
+| 4 | `get_screenshot` | GUI の見た目と一致する JPEG | PASS (2026-07-19)。1280x400 JPEG を保存し目視確認、球が正しく描画 |
+| 5 | `execute_python`: `import time; time.sleep(5)` を `timeout_s=2` で | タイムアウト文言。直後の呼び出しは正常(遅延応答が破棄される) | PASS (2026-07-19)。timeout_s=2 で `kind: connection_error` のタイムアウト文言を確認。直後の呼び出しは `value: 2`、`state` に既存の Sphere1 を保持したまま正常応答 |
+| 6 | ParaView を終了して `bridge_status` | 「マクロを実行せよ」ガイダンス(サーバーは生存) | PASS (2026-07-19)。`connected: false`、`guidance` に "run the paraview_mcp_bridge macro to start it" を含む応答。MCP サーバー(paraview-mcp プロセス)はクラッシュせず正常終了 |
+| 7 | `pvpython --force-offscreen-rendering bridge/paraview_mcp_bridge.py --standalone` に対し 2〜4 相当 | GUI 無しで同一の結果 | PASS (2026-07-19)。port 9912 で起動、`bridge_status`(connected/builtin)・`execute_python`(value: 50, Sphere1)・`get_screenshot`(400x400 JPEG)いずれも embedded 版と同一結果 |
+| 8 | (任意)pvserver 接続下で 2〜4 | builtin と同一挙動、session_type: client-server | **FAIL(切り分け済み、M1 のコードが原因ではない)** (2026-07-19)。pvserver 接続下でマクロとして登録・実行すると、ブリッジは `listening on 127.0.0.1:9911` まで正常にログ出力した直後に ParaView GUI が `Segmentation fault` で強制終了(gdb 実子プロセス追跡で確認: メインスレッド上、`main→QCoreApplication::exec→Qt タイマー→QVTKInteractorInternal::TimerEvent→vtkPythonCommand::Execute→_PyEval_EvalFrameDefault` 内でクラッシュ。GIL 違反やバックグラウンドスレッドからの呼び出しではなく、想定通りメインスレッド上の正規経路)。同時刻の pvserver 側ログの `vtkSocketCommunicator: Could not receive tag` はクライアント側クラッシュによるソケット異常終了の症状。<br>切り分け実験: **未変更の M0 スパイク(`bridge/spike/m0_bridge_spike.py`)と M1 本実装の両方**で、①Python Shell に直接貼り付けて実行 → pvserver 接続下でも問題なし、②マクロとして登録して実行 → 両方とも同一条件でクラッシュ再現。マクロ登録の有無だけが変数で、M0/M1 のコード差分は無関係と確定。ParaView 自身の「マクロ実行機構」と「client-server 接続時のタイマー/オブザーバー登録」の相互作用に起因する ParaView 側の問題と推定される(M0_SPIKE.md のシナリオ②は Shell 貼り付けのみを検証しており、マクロ経由は未検証だった=検証漏れ)。M1 のブリッジコード自体に修正すべき欠陥は見つかっていない。回避策: pvserver 接続時はマクロ登録ではなく Python Shell へ直接貼り付けて実行する。DESIGN.md 200 行目により pvserver 接続の継続的担保は M2 integration + 手動スモークの守備範囲であり M1 必須項目(#1〜7)の合否には影響しない |
 
 ## 6. 実装順序
 
