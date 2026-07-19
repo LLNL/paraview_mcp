@@ -123,10 +123,11 @@ iren.AddObserver('TimerEvent', _on_tick)
 | op | フィールド | 意味 |
 |---|---|---|
 | `ping` | — | 生存確認。ブリッジ/ParaView のバージョン、セッション種別を返す |
-| `exec` | `code`(必須), `render`(既定 true) | コードを実行。`render=true` なら実行後に `Render()` を試みる |
-| `reset` | `namespace`(既定 true), `pipeline`(既定 false) | 実行名前空間の初期化 / パイプライン全削除 |
+| `exec` | `code`(必須), `render`(既定 true), `max_value_bytes`(既定 262144) | コードを実行。`render=true` なら実行後に `Render()` を試みる |
+| `reset` | — | 実行名前空間を初期状態に戻す。パイプラインには触れない(全削除はサーバー側の定型スニペット §7.4 の責務) |
 
 - `token`: ブリッジ側に `PARAVIEW_MCP_TOKEN` が設定されている場合のみ検査。不一致は `auth_error`。
+- `max_value_bytes`: `value` 文字列の切詰め上限(§6.2)。サーバー内部(定型スニペット)専用で、スクリーンショットの base64 返却時に引き上げる(§7.2)。LLM には公開しない。
 - 未知の `op` / `v` 不一致は `protocol_error`。
 
 ### 5.3 レスポンス
@@ -136,6 +137,7 @@ iren.AddObserver('TimerEvent', _on_tick)
  "value": "482",
  "value_is_json": true,
  "stdout": "",
+ "stderr": "",
  "vtk_messages": "",
  "state": {"sources": [{"name": "Sphere1", "type": "Sphere", "visible": true, "active": true}],
             "view": {"type": "RenderView", "size": [1084, 802]},
@@ -149,7 +151,7 @@ iren.AddObserver('TimerEvent', _on_tick)
 {"v": 1, "id": "req-43", "status": "error",
  "error": {"kind": "exec_error", "type": "RuntimeError", "message": "…",
             "traceback": "Traceback (most recent call last): … (末尾 40 行に切詰め)"},
- "stdout": "", "vtk_messages": "…", "state": {…}, "duration_ms": 5}
+ "stdout": "", "stderr": "", "vtk_messages": "…", "state": {…}, "duration_ms": 5}
 ```
 
 - `error.kind` の分類: `exec_error`(ユーザーコード例外)/ `auth_error` / `protocol_error` / `internal_error`(ブリッジ自体の欠陥)/ `policy_violation`(**予約**。将来の静的検証フック(§14)がサーバー側で生成し、findings(規則名・理由・該当箇所)を同梱する。v1 では発生しない)。
@@ -189,7 +191,7 @@ exec(compile(tree, "<paraview-mcp>", "exec"), ns)
 value = eval(compile(last_expr, "<paraview-mcp>", "eval"), ns) if last_expr else None
 ```
 
-- シリアライズ: まず `json.dumps(value)` を試み、成功なら `value_is_json: true`。失敗(プロキシ等)なら `repr(value)` を送り `value_is_json: false`。`value` 文字列は 256 KiB で切詰め(`"…(truncated)"` を付記)。
+- シリアライズ: まず `json.dumps(value)` を試み、成功なら `value_is_json: true`。失敗(プロキシ等)なら `repr(value)` を送り `value_is_json: false`。`value` 文字列はリクエストの `max_value_bytes`(既定 256 KiB)で切詰め(`"…(truncated)"` を付記)。既定のままでは §7.2 の base64 スクリーンショットが壊れるため、定型スニペット送信時にサーバーが引き上げる(§5.2)。
 
 ### 6.3 出力の捕捉
 
@@ -238,7 +240,7 @@ execute_python(code: str, timeout_s: int = 120, render: bool = True) -> structur
 get_screenshot(max_width: int = 1280, quality: int = 80) -> Image + text
 ```
 
-- 定型スニペット: ブリッジ側で `SaveScreenshot()` を一時ファイルへ実行 → bytes を読み base64 で `value` として返却 → 一時ファイル削除。
+- 定型スニペット: ブリッジ側で `SaveScreenshot()` を一時ファイルへ実行 → bytes を読み base64 で `value` として返却 → 一時ファイル削除。リクエストの `max_value_bytes` は 32 MiB に引き上げて送る(§5.2、既定の 256 KiB では base64 が切詰められるため)。
 - サーバー側: base64 をデコードし、Pillow で `max_width` に縮小・JPEG(quality)再圧縮して MCP `Image` として返す。テキスト部に view 種別・元サイズ・バイト数を添える。
 - 対象 view: アクティブ view が RenderView でなければ RenderView を探して撮る(スニペット内で解決)。
 
@@ -381,8 +383,8 @@ paraview_mcp/
   - pvserver 接続時のサーバー側 VTK エラー伝搬(§6.3): **PASS**。実データで確認済み。
   - state 要約生成コスト(§6.5、50件): **PASS**(13.9ms / 14.95ms、目安20ms以内)。
   - 中止基準(standalone + trame 案 B への転換)には該当せず。M1 へ進んで良い。
-- **M1: MVP** — ブリッジ(embedded/standalone)+ サーバー(execute_python / get_screenshot / bridge_status)。手動マクロ起動。ユニットテスト。
-- **M2: 堅牢化** — get_state / reset_session、タイムアウト・遅延応答・再接続の完全実装、VTK メッセージ捕捉、integration CI、README(セキュリティ注意・WSL 手順含む)。
+- **M1: MVP**(要件・テスト設計: [docs/M1_PLAN.md](M1_PLAN.md)) — ブリッジはワイヤプロトコル v1 を完全実装して以後凍結(ping/exec/reset、認証、VTK メッセージ捕捉、state 要約、embedded/standalone。再配布 = 手動マクロ差し替えが最も高コストな変更のため)。サーバーは execute_python / get_screenshot / bridge_status と、タイムアウト・遅延応答破棄・再接続を含むクライアント層(タイムアウト無しではツール呼び出しが無期限ハングし MVP として成立しない)。手動マクロ起動。ユニットテスト+unit CI。
+- **M2: 堅牢化** — get_state / reset_session(いずれもサーバー側スニペットのみ、ブリッジ変更なし)、integration CI(実 pvpython + standalone ブリッジ)、手動スモーク(SMOKE.md / run_smoke.py)、README(セキュリティ注意・WSL 手順含む)。
 - **M3: UX** — instructions チューニング(promptfoo の既存 eval 資産を再利用して回帰評価)、自動起動の調査、上流(LLNL)への還元判断。
 
 ## 14. 将来拡張(v1 ではフックのみ)

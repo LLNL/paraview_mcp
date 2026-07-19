@@ -1,3 +1,7 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
 name = "paraview-mcp"
 version = "0.2.0"
@@ -30,14 +34,14 @@ dependencies = [
     "Pillow>=9.0.0",
 ]
 
+[project.scripts]
+paraview-mcp = "paraview_mcp.server:main"
+
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0.0",
     "pytest-asyncio>=0.21.0",
-    "black>=22.0.0",
-    "flake8>=5.0.0",
-    "mypy>=0.990",
-    "pre-commit>=3.0.0",
+    "ruff>=0.4.0",
 ]
 
 [project.urls]
@@ -46,48 +50,12 @@ Documentation = "https://paraview-mcp.readthedocs.io"
 Repository = "https://github.com/LLNL/paraview_mcp"
 Issues = "https://github.com/LLNL/paraview_mcp/issues"
 
-[tool.uv]
-# No installable package yet -- the bridge (docs/DESIGN.md 4.1) runs inside
-# ParaView's own bundled Python, not this environment, and the MCP server
-# package (M1) doesn't exist yet. uv only needs to manage this venv's
-# dependencies for now; re-enable packaging once src/ reappears.
-package = false
-
-[tool.black]
-line-length = 100
-target-version = ['py310', 'py311', 'py312']
-include = '\.pyi?$'
-extend-exclude = '''
-/(
-    \.eggs
-  | \.git
-  | \.hg
-  | \.mypy_cache
-  | \.tox
-  | \.venv
-  | _build
-  | buck-out
-  | build
-  | dist
-)/
-'''
-
-[tool.mypy]
-python_version = "3.10"
-warn_return_any = true
-warn_unused_configs = true
-disallow_untyped_defs = false
-disallow_incomplete_defs = false
-check_untyped_defs = false
-no_implicit_optional = true
-warn_redundant_casts = true
-warn_unused_ignores = true
-warn_no_return = true
-follow_imports = "silent"
-ignore_missing_imports = true
+[tool.hatch.build.targets.wheel]
+packages = ["src/paraview_mcp"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["src"]
 python_files = ["test_*.py", "*_test.py"]
 addopts = "-v --tb=short"
 asyncio_mode = "auto"
@@ -95,6 +63,16 @@ asyncio_mode = "auto"
 [tool.ruff]
 line-length = 100
 target-version = "py310"
+exclude = [
+    ".git",
+    ".ruff_cache",
+    "__pycache__",
+    "build",
+    "dist",
+    "bridge/spike",  # M0 spike, scheduled for deletion at M1 completion (docs/M1_PLAN.md 6)
+]
+
+[tool.ruff.lint]
 select = [
     "E",  # pycodestyle errors
     "W",  # pycodestyle warnings
@@ -105,15 +83,10 @@ select = [
     "UP", # pyupgrade
 ]
 ignore = [
-    "E501",  # line too long (handled by black)
+    "E501",  # line too long (no black anymore; not worth reflowing every message string)
     "B008",  # do not perform function calls in argument defaults
     "C901",  # too complex
     "W191",  # indentation contains tabs
-]
-exclude = [
-    ".git",
-    ".ruff_cache",
-    "__pycache__",
-    "build",
-    "dist",
+    "UP031", # percent formatting: deliberate, consistent style carried over from the
+             # hardware-validated M0 spike (docs/M0_SPIKE.md) throughout bridge/ and src/
 ]
