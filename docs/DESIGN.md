@@ -196,7 +196,8 @@ value = eval(compile(last_expr, "<paraview-mcp>", "eval"), ns) if last_expr else
 - `stdout` / `stderr`: 実行中のみ `contextlib.redirect_stdout/stderr` で捕捉し、応答に載せる(各 64 KiB 切詰め)。
 - **VTK メッセージ**: 実行中のみ `vtkStringOutputWindow` を `vtkOutputWindow.SetInstance()` で差し替え、`vtk_messages` として返す。実行後は必ず元のインスタンスへ復元する(GUI のメッセージ表示を壊さないこと)。VTK のエラーは Python 例外にならないことが多く、これが LLM のデバッグ能力を大きく左右する。
   - 捕捉範囲は vtkOutputWindow を通るもの(`vtkErrorMacro` / `vtkWarningMacro` 系)に限る。**vtkLogger 直行のログや、C++ が stdout/stderr へ直接書く出力は捕捉できない**(プロセスのコンソールに残る。仕様上の限界として README に記載)。
-  - 差し替え中は GUI の Output Messages パネルへの表示が一時的にこちらへ逸れる(復元後は元に戻る)。pvserver 接続時に**サーバー側プロセス発のエラーがクライアントの vtkOutputWindow に乗るか**は M0 で確認する。
+  - 差し替え中は GUI の Output Messages パネルへの表示が一時的にこちらへ逸れる(復元後は元に戻る)。pvserver 接続時にサーバー側プロセス発のエラーがクライアントの vtkOutputWindow に乗るかは **M0 で確認済み(2026-07-19, PASS)**: 壊れたレガシー VTK ファイルをサーバー側で読ませたところ、`vtkPolyDataReader` の `vtkErrorMacro` エラーがクライアント側の `vtk_messages` に届いた(詳細: [docs/M0_SPIKE.md](M0_SPIKE.md))。
+  - 一方、`paraview.simple.OpenDataFile()` 等が **Python レベルのファイル形式判定**(実際のリーダーを構築する前の拡張子・ヘッダスニッフィング)で送出する `RuntimeError` は vtkOutputWindow を経由しない、通常の Python 例外として `error` に載る別経路である。M0 で誘発コードを書く際にこれを一度取り違えた(M0_SPIKE.md 参照)。実装・instructions 双方でこの違いを意識すること。
 - 例外の捕捉は `BaseException` 単位で行い、`SystemExit` / `KeyboardInterrupt` も `exec_error` に変換する(`exit()` で GUI を殺さない)。ただし `os._exit()` やネイティブコードのクラッシュ(VTK の不正使用による segfault 等)はプロセスごと落ちるため防げない(§8 の前提どおり。サーバー側では切断として §10 の回復フローに乗る)。
 
 ### 6.4 レンダリング
@@ -374,7 +375,12 @@ paraview_mcp/
 
 ## 13. マイルストーン
 
-- **M0: スパイク(最初に行う)** — ParaView 6.1.1 実機で「`GetInteractor().CreateRepeatingTimer` + オブザーバがマクロ起動のコールバックを GUI メインスレッドで駆動できること」「そのコールバック内で `paraview.simple` の生成系・`SaveScreenshot` が安定動作すること」を確認する。**ここが崩れた場合のみ設計を再検討**(代替: standalone モード + trame 案 B へ軸足移動)。追加確認項目: (a) 長い exec 中に `TimerEvent` が再入するか(§4.1 の再入ガードの実証)、(b) pvserver 接続時にサーバー側発の VTK エラーが `vtk_messages` に乗るか(§6.3)、(c) ソース 50 件時の state 要約の生成時間(§6.5)。
+- **M0: スパイク(完了、2026-07-19)** — ParaView 6.1.1 実機(WSL2)で4項目すべて確認した。詳細・再現手順は [docs/M0_SPIKE.md](M0_SPIKE.md)。
+  - タイマー駆動: **PASS**。`CreateRepeatingTimer` + `TimerEvent` オブザーバは GUI メインスレッドでコールバックを安定駆動し、`paraview.simple` もそこから問題なく呼べる。pvserver 接続の有無で挙動差は無い。
+  - 再入(§4.1 のガードの実証): `sleep`+`Render()` を挟む2秒程度のワークロードでは再入は**観測されなかった**。ガードはコード上は残すが、実際に発火する具体的な条件は未特定のまま。
+  - pvserver 接続時のサーバー側 VTK エラー伝搬(§6.3): **PASS**。実データで確認済み。
+  - state 要約生成コスト(§6.5、50件): **PASS**(13.9ms / 14.95ms、目安20ms以内)。
+  - 中止基準(standalone + trame 案 B への転換)には該当せず。M1 へ進んで良い。
 - **M1: MVP** — ブリッジ(embedded/standalone)+ サーバー(execute_python / get_screenshot / bridge_status)。手動マクロ起動。ユニットテスト。
 - **M2: 堅牢化** — get_state / reset_session、タイムアウト・遅延応答・再接続の完全実装、VTK メッセージ捕捉、integration CI、README(セキュリティ注意・WSL 手順含む)。
 - **M3: UX** — instructions チューニング(promptfoo の既存 eval 資産を再利用して回帰評価)、自動起動の調査、上流(LLNL)への還元判断。
