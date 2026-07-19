@@ -1,9 +1,0 @@
-# Core dependencies
-# Pin MCP to compatible version range (tested with 1.10.1)
-mcp[cli]>=1.10.0,<2.0.0
-httpx>=0.24.0
-Pillow>=9.0.0
-
-# Note: ParaView Python bindings must be installed separately
-# They come with the ParaView installation and cannot be pip installed
-# See: https://www.paraview.org/download/
