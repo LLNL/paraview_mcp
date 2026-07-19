@@ -1,21 +1,17 @@
-[build-system]
-requires = ["setuptools>=61.0", "wheel"]
-build-backend = "setuptools.build_meta"
-
 [project]
 name = "paraview-mcp"
-version = "0.1.1"
+version = "0.2.0"
 description = "MCP (Model Context Protocol) server for ParaView visualization control"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 license = {text = "MIT"}
 authors = [
     {name = "Shusen Liu", email = "liu42@llnl.gov"},
-	{name = "Haichao Miao", email = "miao1@llnl.gov"}
+    {name = "Haichao Miao", email = "miao1@llnl.gov"},
 ]
 maintainers = [
     {name = "Shusen Liu", email = "liu42@llnl.gov"},
-	{name = "Haichao Miao", email = "miao1@llnl.gov"}
+    {name = "Haichao Miao", email = "miao1@llnl.gov"},
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -23,10 +19,9 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Visualization",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Operating System :: OS Independent",
 ]
 dependencies = [
@@ -44,17 +39,6 @@ dev = [
     "mypy>=0.990",
     "pre-commit>=3.0.0",
 ]
-eval = [
-    "promptfoo>=0.118.0",
-    "anthropic>=0.34.0",
-    "openai>=1.0.0",
-    "python-dotenv>=1.0.0",
-]
-docs = [
-    "sphinx>=5.0.0",
-    "sphinx-rtd-theme>=1.2.0",
-    "sphinx-autodoc-typehints>=1.19.0",
-]
 
 [project.urls]
 Homepage = "https://github.com/LLNL/paraview_mcp"
@@ -62,19 +46,16 @@ Documentation = "https://paraview-mcp.readthedocs.io"
 Repository = "https://github.com/LLNL/paraview_mcp"
 Issues = "https://github.com/LLNL/paraview_mcp/issues"
 
-[project.scripts]
-paraview-mcp-server = "paraview_mcp.paraview_mcp_server:main"
-
-[tool.setuptools]
-package-dir = {"paraview_mcp" = "src"}
-packages = ["paraview_mcp"]
-
-[tool.setuptools.package-data]
-"*" = ["*.json", "*.yaml", "*.yml"]
+[tool.uv]
+# No installable package yet -- the bridge (docs/DESIGN.md 4.1) runs inside
+# ParaView's own bundled Python, not this environment, and the MCP server
+# package (M1) doesn't exist yet. uv only needs to manage this venv's
+# dependencies for now; re-enable packaging once src/ reappears.
+package = false
 
 [tool.black]
 line-length = 100
-target-version = ['py38', 'py39', 'py310', 'py311']
+target-version = ['py310', 'py311', 'py312']
 include = '\.pyi?$'
 extend-exclude = '''
 /(
@@ -88,12 +69,11 @@ extend-exclude = '''
   | buck-out
   | build
   | dist
-  | eval
 )/
 '''
 
 [tool.mypy]
-python_version = "3.8"
+python_version = "3.10"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = false
@@ -114,7 +94,7 @@ asyncio_mode = "auto"
 
 [tool.ruff]
 line-length = 100
-target-version = "py38"
+target-version = "py310"
 select = [
     "E",  # pycodestyle errors
     "W",  # pycodestyle warnings
@@ -136,5 +116,4 @@ exclude = [
     "__pycache__",
     "build",
     "dist",
-    "eval",
 ]
