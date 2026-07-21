@@ -1,6 +1,6 @@
 # ParaView MCP 再設計仕様書(案A: GUI 内ブリッジ + コード文字列実行)
 
-- Status: Draft v1.1(2026-07-19、外部レビュー指摘 18 件の検証結果を反映)
+- Status: Draft v1.2(2026-07-19、M1 完了と M2 計画([M2_PLAN.md](M2_PLAN.md))を反映)
 - 対象 ParaView: 6.1.1 を主対象(ブリッジは 5.11+ / Python 3.9+ で動作することを目標とし、特定バージョンに依存しない)
 - ライセンス: BSD-3-Clause(LLNL 上流のフォークであるため、LICENSE / NOTICE を維持する)
 
@@ -309,7 +309,7 @@ paraview_mcp/
 ### 9.2 起動手順(ユーザー視点)
 
 1. ParaView GUI を起動(pvserver を使う場合は先に GUI から接続しておく。ブリッジはどちらでも同じ)。
-2. `bridge/paraview_mcp_bridge.py` を **Macros → Import new macro** で登録し、マクロボタンをクリック(= `start()`)。Python Shell 実行でも可。成功時は Shell に `paraview-mcp bridge listening on 127.0.0.1:9911` を表示。
+2. `bridge/paraview_mcp_bridge.py` を **Macros → Import new macro** で登録し、マクロボタンをクリック(= `start()`)。Python Shell 実行でも可。成功時は Shell に `paraview-mcp bridge listening on 127.0.0.1:9911` を表示。**pvserver 接続時はマクロ登録を使わず、ファイル内容を Python Shell へ貼り付けて実行すること**(マクロ経由の起動は ParaView 側の既知問題でクラッシュする — §13 M0 の既知の限界参照)。
 3. MCP クライアント設定(例: Claude Desktop):
 
 ```json
@@ -384,8 +384,8 @@ paraview_mcp/
   - pvserver 接続時のサーバー側 VTK エラー伝搬(§6.3): **PASS**。実データで確認済み。
   - state 要約生成コスト(§6.5、50件): **PASS**(13.9ms / 14.95ms、目安20ms以内)。
   - 中止基準(standalone + trame 案 B への転換)には該当せず。M1 へ進んで良い。
-- **M1: MVP**(要件・テスト設計: [docs/M1_PLAN.md](M1_PLAN.md)) — ブリッジはワイヤプロトコル v1 を完全実装して以後凍結(ping/exec/reset、認証、VTK メッセージ捕捉、state 要約、embedded/standalone。再配布 = 手動マクロ差し替えが最も高コストな変更のため)。サーバーは execute_python / get_screenshot / bridge_status と、タイムアウト・遅延応答破棄・再接続を含むクライアント層(タイムアウト無しではツール呼び出しが無期限ハングし MVP として成立しない)。手動マクロ起動。ユニットテスト+unit CI。
-- **M2: 堅牢化** — get_state / reset_session(いずれもサーバー側スニペットのみ、ブリッジ変更なし)、integration CI(実 pvpython + standalone ブリッジ)、手動スモーク(SMOKE.md / run_smoke.py)、README(セキュリティ注意・WSL 手順含む)。
+- **M1: MVP(完了、2026-07-19)**(要件・テスト設計・受け入れ記録: [docs/M1_PLAN.md](M1_PLAN.md)) — ブリッジはワイヤプロトコル v1 を完全実装して**以後凍結**(ping/exec/reset、認証、VTK メッセージ捕捉、state 要約、embedded/standalone。再配布 = 手動マクロ差し替えが最も高コストな変更のため)。サーバーは execute_python / get_screenshot / bridge_status と、直列化・タイムアウト・遅延応答破棄・自動再接続を含むクライアント層。手動マクロ起動。unit テスト 76 件+unit CI(Python 3.10〜3.12、ruff)。受け入れ(ParaView 6.1.1 実機 / WSL2): 必須 #1〜7 すべて PASS、#8(任意、pvserver)は ParaView 側起因のセグフォとして切り分け済みの FAIL(上記 M0 の既知の限界・回避策参照)。M0 スパイク(`bridge/spike/`)は計画どおり削除(git 履歴に残存)。
+- **M2: 堅牢化**(要件・テスト設計: [M2_PLAN.md](M2_PLAN.md)) — get_state / reset_session(いずれもサーバー側スニペットのみ、ブリッジ変更なし)、integration CI(実 pvpython + standalone ブリッジ)、手動スモーク(SMOKE.md / run_smoke.py)、README(セキュリティ注意・WSL 手順含む。M2 計画策定と同時に改稿済み、2026-07-19)。
 - **M3: UX** — instructions チューニング(promptfoo の既存 eval 資産を再利用して回帰評価)、自動起動の調査、上流(LLNL)への還元判断。
 
 ## 14. 将来拡張(v1 ではフックのみ)

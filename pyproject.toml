@@ -69,7 +69,6 @@ exclude = [
     "__pycache__",
     "build",
     "dist",
-    "bridge/spike",  # M0 spike, scheduled for deletion at M1 completion (docs/M1_PLAN.md 6)
 ]
 
 [tool.ruff.lint]
