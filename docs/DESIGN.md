@@ -259,7 +259,7 @@ get_state(detail: Literal["summary", "arrays", "full"] = "summary") -> structure
 reset_session(clear_pipeline: bool = True, clear_namespace: bool = True) -> text
 ```
 
-- パイプライン全削除は「`GetSources()` を列挙し `Delete()`+Python 参照の `del`」の定型スニペットで行う。削除は依存の下流から先に行う(「他のソースから入力として参照されていないものを削除する」を空になるまで繰り返す実装)。
+- パイプライン全削除は「`GetSources()` を列挙し `Delete()`」の定型スニペットで行う。**削除順序は問わない**: 当初は依存の下流から先に削除する想定だったが、実装時に ParaView 6.1.1 実機で検証した結果、`Delete()` はレジストレーション順(依存関係を考慮しない順序、上流を先に削除する場合を含む)でも例外を出さず、対応する view の Representations も含めて正しく片付くことを確認した(docs/M2_PLAN.md 1.4-3)。よって依存関係の追跡・反復削除は実装しない。名前空間内の変数参照の掃除は `clear_namespace` 側(ブリッジ既存の `reset` op)に委ねる。
 - `paraview.simple.ResetSession()` は **使わない**。これはセッション(サーバー接続)単位の再初期化であり、(a) pvserver 接続中に呼ぶと GUI が張っている接続を失い builtin へ戻る動きになり得る、(b) Qt 層(pqActiveObjects 等)が保持する接続・アクティブオブジェクトと Python 発の再初期化が同期される保証がない。「パイプラインの掃除」という目的に対して破壊半径が大きすぎる。
 
 ### 7.5 `bridge_status`

@@ -111,7 +111,7 @@ async def test_disconnect_while_waiting_raises_with_recovery_wording(fake_bridge
 
     fake_bridge.handler = vanish
     client = make_client(fake_bridge)
-    with pytest.raises(bc.BridgeDisconnectedError, match="execute_python"):
+    with pytest.raises(bc.BridgeDisconnectedError, match="get_state"):
         await client.call("ping", timeout_s=2)
 
 

@@ -46,6 +46,9 @@ paraview_logs/
 # MCP-related artifacts (if any)
 mcp_debug/
 
+# tests/smoke/run_smoke.py's default screenshot output (docs/SMOKE.md)
+tests/smoke/screenshot.jpg
+
 # OS specific files
 .DS_Store
 Thumbs.db

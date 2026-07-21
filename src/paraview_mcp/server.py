@@ -8,6 +8,7 @@ import json
 import logging
 import os
 import sys
+from typing import Any
 
 from mcp.server.fastmcp import FastMCP, Image
 from PIL import Image as PILImage
@@ -41,6 +42,14 @@ instance) by sending Python code strings to execute inside it. Guidelines:
   Windows).
 - Never call input(), open a dialog, or call exit()/quit(): ParaView has
   no human at the keyboard to answer, and exit() would kill the GUI.
+- get_state(detail="summary") is cheap (no server round trip) -- prefer it
+  over guessing from execute_python's own `state` field when you just need
+  a fresh look. Use "arrays" or "full" only when you need array
+  names/ranges or bounds/properties, since those do a real round trip per
+  source.
+- reset_session deletes the whole pipeline and/or clears the persistent
+  namespace -- use it to start over, not to remove a single source (use
+  `Delete(obj); del obj` for that, as above).
 """
 
 
@@ -76,7 +85,7 @@ def _decode_value(resp):
 
 
 @mcp.tool()
-async def execute_python(code: str, timeout_s: int = 120, render: bool = True) -> dict:
+async def execute_python(code: str, timeout_s: int = 120, render: bool = True) -> dict[str, Any]:
     """Execute a Python code string inside the running ParaView session.
 
     paraview.simple is already imported (as `simple` and star-imported).
@@ -142,7 +151,7 @@ async def get_screenshot(max_width: int = 1280, quality: int = 80):
 
 
 @mcp.tool()
-async def bridge_status() -> dict:
+async def bridge_status() -> dict[str, Any]:
     """Check whether the ParaView bridge is reachable and report its
     version/session info. Never raises -- connection failures come back
     as a normal tool result with guidance, not an exception."""
@@ -155,6 +164,88 @@ async def bridge_status() -> dict:
         return result
     result["connected"] = True
     result.update(resp.get("value") or {})
+    return result
+
+
+_DETAIL_SNIPPETS = {"arrays": snippets.GET_STATE_ARRAYS, "full": snippets.GET_STATE_FULL}
+
+
+@mcp.tool()
+async def get_state(detail: str = "summary") -> dict[str, Any]:
+    """Get a summary of the current ParaView pipeline: sources (name,
+    type, visible, active), the active view, and animation time.
+
+    detail="summary" (default) is served from the lightweight state
+    snapshot every bridge response already carries -- no extra work in
+    ParaView. detail="arrays" adds each source's point/cell array names,
+    component counts, and value ranges (one real round trip per source).
+    detail="full" adds bounds, point/cell counts, and scalar property
+    values on top of arrays.
+    """
+    if detail not in ("summary", "arrays", "full"):
+        return {"ok": False, "state": None,
+                "error": {"kind": "invalid_argument",
+                          "message": "detail must be one of: summary, arrays, full (got %r)" % detail}}
+
+    if detail == "summary":
+        try:
+            resp = await _bridge.call("ping", timeout_s=10)
+        except BridgeError as e:
+            return {"ok": False, "state": None, "error": {"kind": "connection_error", "message": str(e)}}
+        return {"ok": True, "detail": "summary", "state": resp.get("state")}
+
+    try:
+        resp = await _bridge.exec(_DETAIL_SNIPPETS[detail], render=False, timeout_s=60,
+                                   max_value_bytes=snippets.GET_STATE_MAX_VALUE_BYTES)
+    except BridgeError as e:
+        return {"ok": False, "state": None, "error": {"kind": "connection_error", "message": str(e)}}
+    if resp.get("status") == "error":
+        error = resp.get("error") or {}
+        return {"ok": False, "state": resp.get("state"),
+                "error": {"kind": "exec_error", "message": "%s: %s" % (error.get("type"), error.get("message"))}}
+
+    result = {"ok": True, "detail": detail, "state": resp.get("state")}
+    result.update(_decode_value(resp) or {})
+    return result
+
+
+@mcp.tool()
+async def reset_session(clear_pipeline: bool = True, clear_namespace: bool = True) -> dict[str, Any]:
+    """Reset the ParaView session: delete every source in the pipeline
+    (clear_pipeline) and/or clear the persistent namespace execute_python
+    code runs in, back to its just-imported state (clear_namespace).
+
+    Use this to start over, not to remove a single source -- for that,
+    use `Delete(obj); del obj` inside execute_python instead.
+    """
+    result = {"ok": True, "deleted_sources": [], "namespace_cleared": False, "state": None}
+
+    if clear_pipeline:
+        try:
+            resp = await _bridge.exec(snippets.RESET_PIPELINE, render=False, timeout_s=60)
+        except BridgeError as e:
+            return {"ok": False, "error": {"kind": "connection_error", "message": str(e)}}
+        if resp.get("status") == "error":
+            error = resp.get("error") or {}
+            return {"ok": False, "state": resp.get("state"),
+                    "error": {"kind": "exec_error",
+                              "message": "%s: %s" % (error.get("type"), error.get("message"))}}
+        result["deleted_sources"] = (_decode_value(resp) or {}).get("deleted", [])
+        result["state"] = resp.get("state")
+
+    if clear_namespace:
+        try:
+            resp = await _bridge.reset(timeout_s=30)
+        except BridgeError as e:
+            return {"ok": False, "error": {"kind": "connection_error", "message": str(e)}}
+        if resp.get("status") == "error":
+            error = resp.get("error") or {}
+            return {"ok": False, "state": resp.get("state"),
+                    "error": {"kind": "exec_error",
+                              "message": "%s: %s" % (error.get("type"), error.get("message"))}}
+        result["namespace_cleared"] = True
+        result["state"] = resp.get("state")
+
     return result
 
 

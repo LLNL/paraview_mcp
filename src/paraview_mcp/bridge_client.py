@@ -5,7 +5,8 @@ connection: lazy/persistent connect with retry (C-01), full-call
 serialization (C-02), per-request timeout (C-03), discard-stale-response
 (C-04), NDJSON framing robustness (C-05), auto-reconnect (C-06), request
 construction (C-07), and translating bridge-side protocol/auth failures
-into the troubleshooting wording from DESIGN.md 10 (C-08).
+into the troubleshooting wording from DESIGN.md 10 (C-08). The C-03/C-06
+wording points at get_state (docs/M2_PLAN.md S-10) now that it exists.
 
 This module never lets a bridge failure propagate as anything other than
 a BridgeError subclass -- the MCP server (src/paraview_mcp/server.py)
@@ -109,8 +110,9 @@ class BridgeClient:
                 raise BridgeTimeoutError(
                     "The request timed out after %ss. The bridge cannot cancel "
                     "in-flight execution, so it may still be running (ParaView "
-                    "will look frozen while it does). The next request will "
-                    "wait for it to finish before it can start." % timeout_s
+                    "will look frozen while it does). Wait a bit and check "
+                    "get_state. The next request will wait for it to finish "
+                    "before it can start." % timeout_s
                 ) from None
             self._raise_if_protocol_level_error(resp)
             return resp
@@ -155,8 +157,8 @@ class BridgeClient:
                 raise BridgeDisconnectedError(
                     "Lost the connection to the bridge while waiting for a "
                     "response. The result was lost, but execution may have "
-                    "completed -- try execute_python or get_screenshot again "
-                    "to check the current pipeline state."
+                    "completed -- call get_state to check the current "
+                    "pipeline state."
                 ) from e
             try:
                 resp = json.loads(raw_line)

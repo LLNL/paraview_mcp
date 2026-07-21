@@ -1,0 +1,43 @@
+name: integration
+
+# Separate from unit.yml on purpose (docs/M2_PLAN.md CI-01): this job
+# installs a full ParaView from conda-forge and runs allow-failure while
+# it's new (CI-03), so its flakiness must never affect unit.yml's signal.
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    continue-on-error: true  # CI-03: allow-failure until docs/M2_PLAN.md's exit criteria are met
+    timeout-minutes: 20      # CI-04: don't let a hang eat the runner queue
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ParaView via micromamba
+        uses: mamba-org/setup-micromamba@v3
+        with:
+          micromamba-version: latest
+          environment-name: paraview-mcp-integration
+          create-args: >-
+            python=3.12
+            paraview=6.1.1
+          channels: conda-forge
+          cache-environment: true  # CI-04: cache across runs
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Install paraview-mcp (uv-managed venv, separate from the micromamba paraview env)
+        run: uv sync --extra dev
+
+      - name: Run integration tests
+        shell: micromamba-shell {0}
+        run: |
+          export PARAVIEW_MCP_PVPYTHON="$(which pvpython)"
+          uv run pytest tests/integration -v

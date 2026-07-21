@@ -12,9 +12,69 @@ _scene = None
 _get_representation_calls = []
 
 
+class FakeArrayInfo:
+    """Mimics vtkPVArrayInformation, as returned by
+    GetPointDataInformation()/GetCellDataInformation().GetArrayInformation(i)
+    -- shape verified against real ParaView 6.1.1 (docs/M2_PLAN.md S-08)."""
+
+    def __init__(self, name, ranges):
+        self._name = name
+        self._ranges = ranges  # list of (min, max), one per component
+
+    def GetName(self):
+        return self._name
+
+    def GetNumberOfComponents(self):
+        return len(self._ranges)
+
+    def GetComponentRange(self, component):
+        return self._ranges[component]
+
+
+class FakeAttributeInfo:
+    """Mimics vtkPVDataSetAttributesInformation (point/cell data)."""
+
+    def __init__(self, arrays=None):
+        self._arrays = list(arrays or [])
+
+    def GetNumberOfArrays(self):
+        return len(self._arrays)
+
+    def GetArrayInformation(self, i):
+        return self._arrays[i]
+
+
+class FakeDataInformation:
+    """Mimics vtkPVDataInformation, as returned by proxy.GetDataInformation()."""
+
+    def __init__(self, point_arrays=None, cell_arrays=None,
+                 bounds=(0.0, 1.0, 0.0, 1.0, 0.0, 1.0), n_points=0, n_cells=0):
+        self._point_info = FakeAttributeInfo(point_arrays)
+        self._cell_info = FakeAttributeInfo(cell_arrays)
+        self._bounds = bounds
+        self._n_points = n_points
+        self._n_cells = n_cells
+
+    def GetPointDataInformation(self):
+        return self._point_info
+
+    def GetCellDataInformation(self):
+        return self._cell_info
+
+    def GetBounds(self):
+        return self._bounds
+
+    def GetNumberOfPoints(self):
+        return self._n_points
+
+    def GetNumberOfCells(self):
+        return self._n_cells
+
+
 class FakeProxy:
     def __init__(self, xml_name, **props):
         self._xml_name = xml_name
+        self._data_info = FakeDataInformation()
         for k, v in props.items():
             setattr(self, k, v)
 
@@ -27,6 +87,14 @@ class FakeProxy:
         # this (DESIGN.md 6.5). Tests assert this list stays empty.
         _get_representation_calls.append(self)
         return FakeRepresentation(self, _active_view)
+
+    def GetDataInformation(self):
+        return self._data_info
+
+    def ListProperties(self):
+        # Mirrors real ParaView: only the kwargs the proxy was constructed
+        # with (or later set) are "properties" -- not internal bookkeeping.
+        return [k for k in self.__dict__ if not k.startswith("_")]
 
 
 class FakeUnserializableProxy(FakeProxy):
@@ -190,6 +258,24 @@ def GetAnimationScene():
 
 def Render():
     pass
+
+
+def UpdatePipeline(proxy=None, time=None):
+    pass
+
+
+def set_data_information(proxy, point_arrays=None, cell_arrays=None,
+                          bounds=(0.0, 1.0, 0.0, 1.0, 0.0, 1.0), n_points=0, n_cells=0):
+    """Test helper (not part of the real paraview.simple API): configure
+    what proxy.GetDataInformation() reports, for get_state(detail=
+    "arrays"/"full") tests. point_arrays/cell_arrays are lists of
+    (name, [(min, max), ...per component]).
+    """
+    proxy._data_info = FakeDataInformation(
+        point_arrays=[FakeArrayInfo(name, ranges) for name, ranges in (point_arrays or [])],
+        cell_arrays=[FakeArrayInfo(name, ranges) for name, ranges in (cell_arrays or [])],
+        bounds=bounds, n_points=n_points, n_cells=n_cells,
+    )
 
 
 _reset()

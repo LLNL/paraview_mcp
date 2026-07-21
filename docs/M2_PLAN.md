@@ -1,6 +1,7 @@
 # M2 要件設計・テスト設計
 
-- Status: Draft(2026-07-19)— **計画のみ。CI・コード・テストの実装は未着手**。着手時は本書の要件 ID を実装・テストの追跡単位とする
+- Status: 実装中(2026-07-21)— §6 実装順序 1〜4(コード・テスト・CI 定義・SMOKE.md/run_smoke.py の作成)が完了。unit 96 件+integration 12 件(計 108 件)green、ruff clean。integration 実装中に**サーバー側の実バグ**を発見・修正: FastMCP は `-> dict` という無引数の型注釈では構造化出力(`structuredContent`)を生成しない(`dict[str, Any]` のようにパラメータ化された型が必要)。unit テストは server.py の関数を直接呼ぶため気づけなかった欠陥で、execute_python / bridge_status を含む既存 4 ツール全部に影響していた(src/paraview_mcp/server.py の戻り値注釈を修正)。
+  - `run_smoke.py` 自体は ParaView 6.1.1 実機の standalone pvpython(headless)を相手にエンドツーエンドで動作確認し、その過程で 2 件のスクリプト側バグ(env 未継承・`UpdatePipeline()`/`Show()` 未呼び出しでスクリーンショットが空になる)を発見・修正した。ただし **GUI でのマクロ登録・pvserver 接続・view 閉鎖など、SMOKE.md 本来のシナリオ①〜⑤(人間が ParaView GUI を操作する部分)は未実施** — 本セッションはヘッドレス環境のため。§5 の #3(GitHub Actions 上での integration CI green)も push が必要なため未実施。いずれもユーザー側での実施が必要
 - 対応マイルストーン: [DESIGN.md](DESIGN.md) §13 M2(堅牢化)
 - 前提: M1 完了([M1_PLAN.md](M1_PLAN.md)。§5 必須 #1〜7 PASS、unit 76 件 green)
 - 本書の位置づけ: DESIGN.md が仕様の正。本書は M2 で実装する範囲の確定・要件の実装単位への分解・テスト設計のみを扱い、仕様の詳細は DESIGN.md の節番号で参照する。
@@ -130,11 +131,11 @@ integration の設計は §3.2 が正。unit の追加は `test_server_tools.py`
 
 | # | 項目 | 期待結果 | 結果 |
 |---|---|---|---|
-| 1 | unit CI | 既存 76 件+追加分がすべて green(Python 3.10〜3.12、ruff) | |
-| 2 | integration をローカルの実 pvpython で実行 | 全ケース PASS | |
-| 3 | integration CI(GitHub Actions) | ジョブ green(allow-failure 運用中でもジョブ自体の green を確認) | |
-| 4 | SMOKE.md 全シナリオ(ParaView 6.1.1 実機 / WSL2) | 全項目 PASS・記録済み(pvserver は Shell 貼り付け手順) | |
-| 5 | マクロ差し替え不要の確認 | M1 時点のブリッジのまま M2 サーバーで全ツールが動く(ブリッジに diff が無いことの確認+実機スモークで担保) | |
+| 1 | unit CI(ローカル、`uv run pytest tests/unit`) | 既存 76 件+追加分がすべて green(ruff clean) | PASS(2026-07-21)。96 件 green。GitHub Actions 上(Python 3.10〜3.12 マトリクス)での実行は push 後に別途確認要 |
+| 2 | integration をローカルの実 pvpython で実行 | 全ケース PASS | PASS(2026-07-21)。ParaView 6.1.1(WSL2)、pvpython standalone、12 件 green。実行中に S-03/S-05 の `structuredContent` 欠陥を発見・修正(上記 Status 参照) |
+| 3 | integration CI(GitHub Actions) | ジョブ green(allow-failure 運用中でもジョブ自体の green を確認) | 未実施(ワークフロー定義のみ作成。push してのトリガー確認が必要) |
+| 4 | SMOKE.md 全シナリオ(ParaView 6.1.1 実機 / WSL2 GUI) | 全項目 PASS・記録済み(pvserver は Shell 貼り付け手順) | 未実施(GUI 操作が必要)。`run_smoke.py` 自体は standalone pvpython 相手に動作確認済み(basic/timeout/disconnected 全 PASS)で、GUI 実施時に流すスクリプトとしての健全性は担保済み |
+| 5 | マクロ差し替え不要の確認 | M1 時点のブリッジのまま M2 サーバーで全ツールが動く(ブリッジに diff が無いことの確認+実機スモークで担保) | PASS(2026-07-21、部分)。`git diff` で bridge/paraview_mcp_bridge.py に無変更を確認済み。実機 GUI での動作確認は #4 未実施につき持ち越し |
 
 ## 6. 実装順序
 

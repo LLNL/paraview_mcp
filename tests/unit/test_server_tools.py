@@ -36,6 +36,9 @@ class FakeBridgeClientDouble:
             raise self.call_response
         return self.call_response
 
+    async def reset(self, timeout_s=30):
+        return await self.call("reset", timeout_s=timeout_s)
+
 
 def install_fake(monkeypatch):
     fake = FakeBridgeClientDouble()
@@ -154,6 +157,133 @@ async def test_bridge_status_unreachable_returns_guidance_not_exception(monkeypa
     result = await server.bridge_status()
     assert result["connected"] is False
     assert "macro" in result["guidance"]
+
+
+# ---- S-08: get_state ---------------------------------------------------------
+
+async def test_get_state_summary_uses_ping_not_exec(monkeypatch):
+    fake = install_fake(monkeypatch)
+    fake.call_response = {"status": "ok", "value": {"session_type": "builtin"},
+                           "state": {"sources": [{"name": "Sphere1"}], "count": 1,
+                                     "truncated": False, "view": None, "time": None}}
+    result = await server.get_state("summary")
+    assert fake.call_calls[0]["op"] == "ping"
+    assert not fake.exec_calls  # no exec round trip for summary
+    assert result["ok"] is True
+    assert result["detail"] == "summary"
+    assert result["state"]["sources"] == [{"name": "Sphere1"}]
+
+
+async def test_get_state_summary_defaults_when_no_arg_given(monkeypatch):
+    fake = install_fake(monkeypatch)
+    fake.call_response = {"status": "ok", "value": {}, "state": {"sources": []}}
+    result = await server.get_state()
+    assert result["detail"] == "summary"
+
+
+async def test_get_state_arrays_sends_snippet_with_raised_max_value_bytes(monkeypatch):
+    fake = install_fake(monkeypatch)
+    fake.exec_response = {"status": "ok", "value": json.dumps({"arrays": {"Sphere1": {}}}),
+                           "value_is_json": True, "state": {"sources": []}, "duration_ms": 1}
+    result = await server.get_state("arrays")
+    assert fake.exec_calls[0]["code"] == snippets.GET_STATE_ARRAYS
+    assert fake.exec_calls[0]["render"] is False
+    assert fake.exec_calls[0]["max_value_bytes"] == snippets.GET_STATE_MAX_VALUE_BYTES
+    assert result["ok"] is True
+    assert result["detail"] == "arrays"
+    assert result["arrays"] == {"Sphere1": {}}
+    assert result["state"] == {"sources": []}
+
+
+async def test_get_state_full_sends_full_snippet(monkeypatch):
+    fake = install_fake(monkeypatch)
+    fake.exec_response = {"status": "ok", "value": json.dumps({"full": {"Sphere1": {"n_points": 50}}}),
+                           "value_is_json": True, "state": None, "duration_ms": 1}
+    result = await server.get_state("full")
+    assert fake.exec_calls[0]["code"] == snippets.GET_STATE_FULL
+    assert result["full"] == {"Sphere1": {"n_points": 50}}
+
+
+async def test_get_state_invalid_detail_is_tool_error_not_exception(monkeypatch):
+    fake = install_fake(monkeypatch)
+    result = await server.get_state("bogus")
+    assert result["ok"] is False
+    assert "detail" in result["error"]["message"]
+    assert not fake.call_calls and not fake.exec_calls
+
+
+async def test_get_state_exec_error_is_tool_error(monkeypatch):
+    fake = install_fake(monkeypatch)
+    fake.exec_response = {"status": "error",
+                           "error": {"kind": "exec_error", "type": "RuntimeError", "message": "boom"},
+                           "state": None}
+    result = await server.get_state("arrays")
+    assert result["ok"] is False
+    assert "boom" in result["error"]["message"]
+
+
+async def test_get_state_bridge_error_returns_structured_result_not_raise(monkeypatch):
+    fake = install_fake(monkeypatch)
+    fake.call_response = bridge_client.BridgeUnavailableError("run the macro to start it")
+    result = await server.get_state("summary")
+    assert result["ok"] is False
+    assert "run the macro" in result["error"]["message"]
+
+
+# ---- S-09: reset_session -------------------------------------------------------
+
+async def test_reset_session_default_clears_pipeline_then_namespace(monkeypatch):
+    fake = install_fake(monkeypatch)
+    fake.exec_response = {"status": "ok", "value": json.dumps({"deleted": ["Sphere1", "Cone1"]}),
+                           "value_is_json": True, "state": {"sources": []}, "duration_ms": 1}
+    fake.call_response = {"status": "ok", "state": {"sources": []}}
+
+    result = await server.reset_session()
+
+    assert fake.exec_calls[0]["code"] == snippets.RESET_PIPELINE
+    assert fake.exec_calls[0]["render"] is False
+    assert fake.call_calls[0]["op"] == "reset"
+    assert result["ok"] is True
+    assert result["deleted_sources"] == ["Sphere1", "Cone1"]
+    assert result["namespace_cleared"] is True
+
+
+async def test_reset_session_pipeline_only(monkeypatch):
+    fake = install_fake(monkeypatch)
+    fake.exec_response = {"status": "ok", "value": json.dumps({"deleted": ["Sphere1"]}),
+                           "value_is_json": True, "state": None, "duration_ms": 1}
+    result = await server.reset_session(clear_pipeline=True, clear_namespace=False)
+    assert fake.exec_calls  # pipeline snippet sent
+    assert not fake.call_calls  # no "reset" op sent
+    assert result["deleted_sources"] == ["Sphere1"]
+    assert result["namespace_cleared"] is False
+
+
+async def test_reset_session_namespace_only(monkeypatch):
+    fake = install_fake(monkeypatch)
+    fake.call_response = {"status": "ok", "state": {"sources": []}}
+    result = await server.reset_session(clear_pipeline=False, clear_namespace=True)
+    assert not fake.exec_calls  # no pipeline snippet sent
+    assert fake.call_calls[0]["op"] == "reset"
+    assert result["deleted_sources"] == []
+    assert result["namespace_cleared"] is True
+
+
+async def test_reset_session_neither_is_a_noop(monkeypatch):
+    fake = install_fake(monkeypatch)
+    result = await server.reset_session(clear_pipeline=False, clear_namespace=False)
+    assert not fake.exec_calls and not fake.call_calls
+    assert result["ok"] is True
+    assert result["deleted_sources"] == []
+    assert result["namespace_cleared"] is False
+
+
+async def test_reset_session_bridge_error_returns_structured_result_not_raise(monkeypatch):
+    fake = install_fake(monkeypatch)
+    fake.exec_response = bridge_client.BridgeTimeoutError("timed out")
+    result = await server.reset_session()
+    assert result["ok"] is False
+    assert "timed out" in result["error"]["message"]
 
 
 # ---- S-01 / S-06 --------------------------------------------------------------
